@@ -11,3 +11,10 @@ var userResourceType = &v2.ResourceType{
 	Traits:      []v2.ResourceType_Trait{v2.ResourceType_TRAIT_USER},
 	Annotations: getSkippEntitlementsAndGrantsAnnotations(),
 }
+
+var serviceResourceType = &v2.ResourceType{
+	Id:          "service",
+	DisplayName: "Service",
+	Description: "Service of Fastly customer.",
+	Traits:      []v2.ResourceType_Trait{v2.ResourceType_TRAIT_APP},
+}
