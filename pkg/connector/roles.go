@@ -15,7 +15,14 @@ import (
 )
 
 var (
-	roles = []string{"Superuser", "User", "Billing", "Engineer"}
+	superUserRole = "Superuser"
+	userRole      = "User"
+	billingRole   = "Billing"
+	engineerRole  = "Engineer"
+
+	roles = []string{superUserRole, userRole, billingRole, engineerRole}
+
+	rolesWithAccessToAllServices = []string{superUserRole, userRole, billingRole}
 )
 
 type roleBuilder struct {

@@ -2,10 +2,14 @@ package connector
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
 	"github.com/conductorone/baton-sdk/pkg/pagination"
+	ent "github.com/conductorone/baton-sdk/pkg/types/entitlement"
+	grant "github.com/conductorone/baton-sdk/pkg/types/grant"
 	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
 	"github.com/fastly/go-fastly/v8/fastly"
 )
@@ -13,12 +17,28 @@ import (
 type serviceBuilder struct {
 	resourceType *v2.ResourceType
 	client       *fastly.Client
+	customerId   string
 }
 
-func newServiceBuilder(client *fastly.Client) *serviceBuilder {
+var (
+	ReadOnlyPermission    = "read_only"
+	PurgeSelectPermission = "purge_select"
+	PurgeAllPermission    = "purge_all"
+	FullAccessPermission  = "full"
+
+	permissionEntitlementMap = map[string][]string{
+		ReadOnlyPermission:    {readStatsAndAnalyticsEntitlement},
+		PurgeSelectPermission: {readStatsAndAnalyticsEntitlement, writeConfigurationEntitlement},
+		PurgeAllPermission:    {readStatsAndAnalyticsEntitlement, writeConfigurationEntitlement, purgeConfigurationEntitlement},
+		FullAccessPermission:  {readStatsAndAnalyticsEntitlement, writeConfigurationEntitlement, purgeConfigurationEntitlement, activateConfigurationEntitlement},
+	}
+)
+
+func newServiceBuilder(client *fastly.Client, customerId string) *serviceBuilder {
 	return &serviceBuilder{
 		resourceType: serviceResourceType,
 		client:       client,
+		customerId:   customerId,
 	}
 }
 
@@ -78,10 +98,222 @@ func (o *serviceBuilder) List(ctx context.Context, _ *v2.ResourceId, pagination 
 	return resources, nextPage, nil, nil
 }
 
-func (o *serviceBuilder) Entitlements(ctx context.Context, _ *v2.Resource, _ *pagination.Token) ([]*v2.Entitlement, string, annotations.Annotations, error) {
-	return nil, "", nil, nil
+func (o *serviceBuilder) Entitlements(ctx context.Context, resource *v2.Resource, _ *pagination.Token) ([]*v2.Entitlement, string, annotations.Annotations, error) {
+	var rv []*v2.Entitlement
+
+	assigmentOptions := []ent.EntitlementOption{
+		ent.WithGrantableTo(userResourceType),
+		ent.WithDescription(fmt.Sprintf("Can read stats and analytics of %s", resource.DisplayName)),
+		ent.WithDisplayName(fmt.Sprintf("%s of %s", readStatsAndAnalyticsEntitlement, resource.DisplayName)),
+	}
+	rv = append(rv, ent.NewAssignmentEntitlement(resource, readStatsAndAnalyticsEntitlement, assigmentOptions...))
+
+	assigmentOptions = []ent.EntitlementOption{
+		ent.WithGrantableTo(userResourceType),
+		ent.WithDescription(fmt.Sprintf("Access billing of %s", resource.DisplayName)),
+		ent.WithDisplayName(fmt.Sprintf("%s of %s", accessBillingEntitlement, resource.DisplayName)),
+	}
+	rv = append(rv, ent.NewAssignmentEntitlement(resource, accessBillingEntitlement, assigmentOptions...))
+
+	assigmentOptions = []ent.EntitlementOption{
+		ent.WithGrantableTo(userResourceType),
+		ent.WithDescription(fmt.Sprintf("manage users and accounts of %s", resource.DisplayName)),
+		ent.WithDisplayName(fmt.Sprintf("%s of %s", manageUsersAndAccountsEntitlement, resource.DisplayName)),
+	}
+	rv = append(rv, ent.NewAssignmentEntitlement(resource, manageUsersAndAccountsEntitlement, assigmentOptions...))
+
+	assigmentOptions = []ent.EntitlementOption{
+		ent.WithGrantableTo(userResourceType),
+		ent.WithDescription(fmt.Sprintf("Read configuration of %s", resource.DisplayName)),
+		ent.WithDisplayName(fmt.Sprintf("%s of %s", readConfigurationEntitlement, resource.DisplayName)),
+	}
+	rv = append(rv, ent.NewAssignmentEntitlement(resource, readConfigurationEntitlement, assigmentOptions...))
+
+	assigmentOptions = []ent.EntitlementOption{
+		ent.WithGrantableTo(userResourceType),
+		ent.WithDescription(fmt.Sprintf("Write configuration of %s", resource.DisplayName)),
+		ent.WithDisplayName(fmt.Sprintf("%s of %s", writeConfigurationEntitlement, resource.DisplayName)),
+	}
+	rv = append(rv, ent.NewAssignmentEntitlement(resource, writeConfigurationEntitlement, assigmentOptions...))
+
+	assigmentOptions = []ent.EntitlementOption{
+		ent.WithGrantableTo(userResourceType),
+		ent.WithDescription(fmt.Sprintf("Purge configuration of %s", resource.DisplayName)),
+		ent.WithDisplayName(fmt.Sprintf("%s of %s", purgeConfigurationEntitlement, resource.DisplayName)),
+	}
+	rv = append(rv, ent.NewAssignmentEntitlement(resource, purgeConfigurationEntitlement, assigmentOptions...))
+
+	assigmentOptions = []ent.EntitlementOption{
+		ent.WithGrantableTo(userResourceType),
+		ent.WithDescription(fmt.Sprintf("Activate configuration of %s", resource.DisplayName)),
+		ent.WithDisplayName(fmt.Sprintf("%s of %s", activateConfigurationEntitlement, resource.DisplayName)),
+	}
+	rv = append(rv, ent.NewAssignmentEntitlement(resource, activateConfigurationEntitlement, assigmentOptions...))
+
+	assigmentOptions = []ent.EntitlementOption{
+		ent.WithGrantableTo(roleResourceType),
+		ent.WithDescription(fmt.Sprintf("Access %s", resource.DisplayName)),
+		ent.WithDisplayName(fmt.Sprintf("%s of %s", accessEntitlement, resource.DisplayName)),
+	}
+	rv = append(rv, ent.NewAssignmentEntitlement(resource, accessEntitlement, assigmentOptions...))
+
+	return rv, "", nil, nil
 }
 
-func (o *serviceBuilder) Grants(ctx context.Context, resource *v2.Resource, _ *pagination.Token) ([]*v2.Grant, string, annotations.Annotations, error) {
-	return nil, "", nil, nil
+func (o *serviceBuilder) Grants(ctx context.Context, resource *v2.Resource, pagination *pagination.Token) ([]*v2.Grant, string, annotations.Annotations, error) {
+	bag, page, err := parsePageToken(pagination.Token, &v2.ResourceId{ResourceType: o.resourceType.Id})
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	var rv []*v2.Grant
+
+	// Handle grants without pagination
+	if page == 0 {
+		grants, err := grantRoles(ctx, resource)
+		if err != nil {
+			return nil, "", nil, wrapError(err, "failed to grant roles")
+		}
+		rv = append(rv, grants...)
+
+		grants, err = o.grantUsers(ctx, resource)
+		if err != nil {
+			return nil, "", nil, wrapError(err, "failed to grant users")
+		}
+	}
+
+	authorizations, err := o.client.ListServiceAuthorizations(&fastly.ListServiceAuthorizationsInput{PageNumber: page, PageSize: resourcePageSize})
+	if err != nil {
+		return nil, "", nil, wrapError(err, "failed to list service authorizations")
+	}
+
+	grants, err := o.grantEngineer(resource, authorizations.Items)
+	if err != nil {
+		return nil, "", nil, wrapError(err, "failed to process service authorizations")
+	}
+	rv = append(rv, grants...)
+
+	if isLastPage(len(authorizations.Items), resourcePageSize) {
+		return rv, "", nil, nil
+	}
+
+	nextPage, err := handleNextPage(bag, page+1)
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	return rv, nextPage, nil, nil
+}
+
+func grantRoles(ctx context.Context, resource *v2.Resource) ([]*v2.Grant, error) {
+	var rv []*v2.Grant
+
+	for _, role := range rolesWithAccessToAllServices {
+		roleResource, err := newRoleResource(ctx, role)
+		if err != nil {
+			return nil, err
+		}
+
+		rv = append(rv, grant.NewGrant(resource, accessEntitlement, roleResource.Id))
+	}
+
+	return rv, nil
+}
+
+func (o *serviceBuilder) grantUsers(ctx context.Context, service *v2.Resource) ([]*v2.Grant, error) {
+	var rv []*v2.Grant
+
+	users, err := o.client.ListCustomerUsers(&fastly.ListCustomerUsersInput{CustomerID: o.customerId})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, user := range users {
+		userResource, err := newUserResource(ctx, user)
+		if err != nil {
+			return nil, err
+		}
+
+		switch strings.ToLower(user.Role) {
+		case strings.ToLower(superUserRole):
+			rv = append(rv, grantSuperuser(service, userResource)...)
+			break
+		case strings.ToLower(userRole):
+			rv = append(rv, grantUser(service, userResource)...)
+			break
+		case strings.ToLower(billingRole):
+			rv = append(rv, grantBilling(service, userResource)...)
+			break
+		case strings.ToLower(engineerRole):
+			break
+		default:
+			return nil, fmt.Errorf("unknown role %s", user.Role)
+		}
+	}
+
+	return rv, nil
+}
+
+func grantSuperuser(service *v2.Resource, user *v2.Resource) []*v2.Grant {
+	rv := []*v2.Grant{
+		grant.NewGrant(service, readStatsAndAnalyticsEntitlement, user.Id),
+		grant.NewGrant(service, accessBillingEntitlement, user.Id),
+		grant.NewGrant(service, manageUsersAndAccountsEntitlement, user.Id),
+		grant.NewGrant(service, readConfigurationEntitlement, user.Id),
+		grant.NewGrant(service, writeConfigurationEntitlement, user.Id),
+		grant.NewGrant(service, purgeConfigurationEntitlement, user.Id),
+		grant.NewGrant(service, activateConfigurationEntitlement, user.Id),
+	}
+
+	return rv
+}
+
+func grantUser(service *v2.Resource, user *v2.Resource) []*v2.Grant {
+	rv := []*v2.Grant{
+		grant.NewGrant(service, readStatsAndAnalyticsEntitlement, user.Id),
+	}
+
+	return rv
+}
+
+func grantBilling(service *v2.Resource, user *v2.Resource) []*v2.Grant {
+	rv := []*v2.Grant{
+		grant.NewGrant(service, readStatsAndAnalyticsEntitlement, user.Id),
+		grant.NewGrant(service, accessBillingEntitlement, user.Id),
+		grant.NewGrant(service, manageUsersAndAccountsEntitlement, user.Id),
+		grant.NewGrant(service, readConfigurationEntitlement, user.Id),
+		grant.NewGrant(service, writeConfigurationEntitlement, user.Id),
+		grant.NewGrant(service, purgeConfigurationEntitlement, user.Id),
+		grant.NewGrant(service, activateConfigurationEntitlement, user.Id),
+	}
+
+	return rv
+}
+
+func (o *serviceBuilder) grantEngineer(service *v2.Resource, authorizations []*fastly.ServiceAuthorization) ([]*v2.Grant, error) {
+	var rv []*v2.Grant
+
+	for _, authorization := range authorizations {
+		if authorization.Service.ID == service.Id.Resource {
+			user, err := o.client.GetUser(&fastly.GetUserInput{ID: authorization.User.ID})
+			if err != nil {
+				return nil, err
+			}
+
+			userResource, err := newUserResource(context.Background(), user)
+			if err != nil {
+				return nil, err
+			}
+
+			if entitlements, exists := permissionEntitlementMap[authorization.Permission]; exists {
+				for _, entitlement := range entitlements {
+					rv = append(rv, grant.NewGrant(service, entitlement, userResource.Id))
+				}
+			} else {
+				return nil, fmt.Errorf("unknown permission %s", authorization.Permission)
+			}
+		}
+	}
+
+	return rv, nil
 }
