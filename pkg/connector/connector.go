@@ -20,6 +20,8 @@ type Fastly struct {
 func (d *Fastly) ResourceSyncers(ctx context.Context) []connectorbuilder.ResourceSyncer {
 	return []connectorbuilder.ResourceSyncer{
 		newUserBuilder(d.client, d.customerId),
+		newServiceBuilder(d.client),
+		newRoleBuilder(d.client, d.customerId),
 	}
 }
 

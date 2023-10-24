@@ -15,7 +15,14 @@ type serviceBuilder struct {
 	client       *fastly.Client
 }
 
-func (o *serviceBuilder) ResourceType() *v2.ResourceType {
+func newServiceBuilder(client *fastly.Client) *serviceBuilder {
+	return &serviceBuilder{
+		resourceType: serviceResourceType,
+		client:       client,
+	}
+}
+
+func (o *serviceBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
 	return o.resourceType
 }
 
@@ -38,7 +45,7 @@ func newServiceResource(service *fastly.Service) (*v2.Resource, error) {
 	return resource, nil
 }
 
-func (o *serviceBuilder) List(ctx context.Context, _ *v2.RequestId, pagination *pagination.Token) ([]*v2.Resource, string, annotations.Annotations, error) {
+func (o *serviceBuilder) List(ctx context.Context, _ *v2.ResourceId, pagination *pagination.Token) ([]*v2.Resource, string, annotations.Annotations, error) {
 	bag, page, err := parsePageToken(pagination.Token, &v2.ResourceId{ResourceType: o.resourceType.Id})
 	if err != nil {
 		return nil, "", nil, err
@@ -71,10 +78,10 @@ func (o *serviceBuilder) List(ctx context.Context, _ *v2.RequestId, pagination *
 	return resources, nextPage, nil, nil
 }
 
-func (o *serviceBuilder) Entitlements(ctx context.Context, resource *v2.RequestId, _ *v2.ResourceId, _ *pagination.Token) ([]*v2.Resource, string, annotations.Annotations, error) {
+func (o *serviceBuilder) Entitlements(ctx context.Context, _ *v2.Resource, _ *pagination.Token) ([]*v2.Entitlement, string, annotations.Annotations, error) {
 	return nil, "", nil, nil
 }
 
-func (o *serviceBuilder) Grants(ctx context.Context, resource *v2.RequestId, _ *pagination.Token) ([]*v2.Grant, string, annotations.Annotations, error) {
+func (o *serviceBuilder) Grants(ctx context.Context, resource *v2.Resource, _ *pagination.Token) ([]*v2.Grant, string, annotations.Annotations, error) {
 	return nil, "", nil, nil
 }
