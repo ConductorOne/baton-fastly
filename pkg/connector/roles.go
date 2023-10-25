@@ -40,7 +40,7 @@ func newRoleBuilder(clinet *fastly.Client, customerId string) *roleBuilder {
 }
 
 func (r *roleBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
-	return r.resourceType
+	return roleResourceType
 }
 
 func newRoleResource(ctx context.Context, role string) (*v2.Resource, error) {
@@ -99,12 +99,12 @@ func (o *roleBuilder) Grants(ctx context.Context, resource *v2.Resource, _ *pagi
 			continue
 		}
 
-		resource, err := newUserResource(ctx, user)
+		userResource, err := newUserResource(ctx, user)
 		if err != nil {
 			return nil, "", nil, wrapError(err, "error creating user resource")
 		}
 
-		rv = append(rv, grant.NewGrant(resource, assignedEntitlement, resource.Id))
+		rv = append(rv, grant.NewGrant(resource, assignedEntitlement, userResource.Id))
 	}
 
 	return rv, "", nil, nil

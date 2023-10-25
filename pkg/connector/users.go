@@ -18,7 +18,7 @@ type userBuilder struct {
 }
 
 func (o *userBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
-	return o.resourceType
+	return userResourceType
 }
 
 func newUserResource(ctx context.Context, user *fastly.User) (*v2.Resource, error) {
@@ -97,7 +97,8 @@ func (o *userBuilder) Grants(ctx context.Context, resource *v2.Resource, pToken 
 
 func newUserBuilder(client *fastly.Client, customerId string) *userBuilder {
 	return &userBuilder{
-		client:     client,
-		customerId: customerId,
+		resourceType: userResourceType,
+		client:       client,
+		customerId:   customerId,
 	}
 }

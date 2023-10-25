@@ -27,10 +27,10 @@ var (
 	FullAccessPermission  = "full"
 
 	permissionEntitlementMap = map[string][]string{
-		ReadOnlyPermission:    {readStatsAndAnalyticsEntitlement},
-		PurgeSelectPermission: {readStatsAndAnalyticsEntitlement, writeConfigurationEntitlement},
-		PurgeAllPermission:    {readStatsAndAnalyticsEntitlement, writeConfigurationEntitlement, purgeConfigurationEntitlement},
-		FullAccessPermission:  {readStatsAndAnalyticsEntitlement, writeConfigurationEntitlement, purgeConfigurationEntitlement, activateConfigurationEntitlement},
+		ReadOnlyPermission:    {readStatsAndConfigurationEntitlement},
+		PurgeSelectPermission: {readStatsAndConfigurationEntitlement, purgeSelectedContentEntitlement},
+		PurgeAllPermission:    {readStatsAndConfigurationEntitlement, purgeSelectedContentEntitlement, purgeAllEntitlement},
+		FullAccessPermission:  {readStatsAndConfigurationEntitlement, purgeSelectedContentEntitlement, purgeAllEntitlement, fullAccessEntitlement},
 	}
 )
 
@@ -43,7 +43,7 @@ func newServiceBuilder(client *fastly.Client, customerId string) *serviceBuilder
 }
 
 func (o *serviceBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
-	return o.resourceType
+	return serviceResourceType
 }
 
 func newServiceResource(service *fastly.Service) (*v2.Resource, error) {
@@ -125,30 +125,30 @@ func (o *serviceBuilder) Entitlements(ctx context.Context, resource *v2.Resource
 	assigmentOptions = []ent.EntitlementOption{
 		ent.WithGrantableTo(userResourceType),
 		ent.WithDescription(fmt.Sprintf("Read configuration of %s", resource.DisplayName)),
-		ent.WithDisplayName(fmt.Sprintf("%s of %s", readConfigurationEntitlement, resource.DisplayName)),
+		ent.WithDisplayName(fmt.Sprintf("%s of %s", readStatsAndConfigurationEntitlement, resource.DisplayName)),
 	}
-	rv = append(rv, ent.NewAssignmentEntitlement(resource, readConfigurationEntitlement, assigmentOptions...))
+	rv = append(rv, ent.NewAssignmentEntitlement(resource, readStatsAndConfigurationEntitlement, assigmentOptions...))
 
 	assigmentOptions = []ent.EntitlementOption{
 		ent.WithGrantableTo(userResourceType),
 		ent.WithDescription(fmt.Sprintf("Write configuration of %s", resource.DisplayName)),
-		ent.WithDisplayName(fmt.Sprintf("%s of %s", writeConfigurationEntitlement, resource.DisplayName)),
+		ent.WithDisplayName(fmt.Sprintf("%s of %s", purgeSelectedContentEntitlement, resource.DisplayName)),
 	}
-	rv = append(rv, ent.NewAssignmentEntitlement(resource, writeConfigurationEntitlement, assigmentOptions...))
+	rv = append(rv, ent.NewAssignmentEntitlement(resource, purgeSelectedContentEntitlement, assigmentOptions...))
 
 	assigmentOptions = []ent.EntitlementOption{
 		ent.WithGrantableTo(userResourceType),
 		ent.WithDescription(fmt.Sprintf("Purge configuration of %s", resource.DisplayName)),
-		ent.WithDisplayName(fmt.Sprintf("%s of %s", purgeConfigurationEntitlement, resource.DisplayName)),
+		ent.WithDisplayName(fmt.Sprintf("%s of %s", purgeAllEntitlement, resource.DisplayName)),
 	}
-	rv = append(rv, ent.NewAssignmentEntitlement(resource, purgeConfigurationEntitlement, assigmentOptions...))
+	rv = append(rv, ent.NewAssignmentEntitlement(resource, purgeAllEntitlement, assigmentOptions...))
 
 	assigmentOptions = []ent.EntitlementOption{
 		ent.WithGrantableTo(userResourceType),
 		ent.WithDescription(fmt.Sprintf("Activate configuration of %s", resource.DisplayName)),
-		ent.WithDisplayName(fmt.Sprintf("%s of %s", activateConfigurationEntitlement, resource.DisplayName)),
+		ent.WithDisplayName(fmt.Sprintf("%s of %s", fullAccessEntitlement, resource.DisplayName)),
 	}
-	rv = append(rv, ent.NewAssignmentEntitlement(resource, activateConfigurationEntitlement, assigmentOptions...))
+	rv = append(rv, ent.NewAssignmentEntitlement(resource, fullAccessEntitlement, assigmentOptions...))
 
 	assigmentOptions = []ent.EntitlementOption{
 		ent.WithGrantableTo(roleResourceType),
@@ -180,6 +180,8 @@ func (o *serviceBuilder) Grants(ctx context.Context, resource *v2.Resource, pagi
 		if err != nil {
 			return nil, "", nil, wrapError(err, "failed to grant users")
 		}
+
+		rv = append(rv, grants...)
 	}
 
 	authorizations, err := o.client.ListServiceAuthorizations(&fastly.ListServiceAuthorizationsInput{PageNumber: page, PageSize: resourcePageSize})
@@ -259,10 +261,6 @@ func grantSuperuser(service *v2.Resource, user *v2.Resource) []*v2.Grant {
 		grant.NewGrant(service, readStatsAndAnalyticsEntitlement, user.Id),
 		grant.NewGrant(service, accessBillingEntitlement, user.Id),
 		grant.NewGrant(service, manageUsersAndAccountsEntitlement, user.Id),
-		grant.NewGrant(service, readConfigurationEntitlement, user.Id),
-		grant.NewGrant(service, writeConfigurationEntitlement, user.Id),
-		grant.NewGrant(service, purgeConfigurationEntitlement, user.Id),
-		grant.NewGrant(service, activateConfigurationEntitlement, user.Id),
 	}
 
 	return rv
@@ -280,11 +278,6 @@ func grantBilling(service *v2.Resource, user *v2.Resource) []*v2.Grant {
 	rv := []*v2.Grant{
 		grant.NewGrant(service, readStatsAndAnalyticsEntitlement, user.Id),
 		grant.NewGrant(service, accessBillingEntitlement, user.Id),
-		grant.NewGrant(service, manageUsersAndAccountsEntitlement, user.Id),
-		grant.NewGrant(service, readConfigurationEntitlement, user.Id),
-		grant.NewGrant(service, writeConfigurationEntitlement, user.Id),
-		grant.NewGrant(service, purgeConfigurationEntitlement, user.Id),
-		grant.NewGrant(service, activateConfigurationEntitlement, user.Id),
 	}
 
 	return rv
