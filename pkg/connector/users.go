@@ -54,7 +54,7 @@ func newUserResource(ctx context.Context, user *fastly.User) (*v2.Resource, erro
 	return resource, nil
 }
 
-func parseName(name string) (firstName, lastName string) {
+func parseName(name string) (string, string) {
 	names := strings.Split(name, " ")
 
 	if len(names) == 1 {
