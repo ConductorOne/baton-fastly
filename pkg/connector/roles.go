@@ -14,12 +14,14 @@ import (
 	"github.com/fastly/go-fastly/v8/fastly"
 )
 
-var (
+const (
 	superUserRole = "Superuser"
 	userRole      = "User"
 	billingRole   = "Billing"
 	engineerRole  = "Engineer"
+)
 
+var (
 	roles = []string{superUserRole, userRole, billingRole, engineerRole}
 
 	rolesWithAccessToAllServices = []string{superUserRole, userRole, billingRole}

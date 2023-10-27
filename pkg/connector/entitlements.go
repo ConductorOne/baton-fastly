@@ -1,6 +1,6 @@
 package connector
 
-var (
+const (
 	assignedEntitlement                  = "assigned"
 	readStatsAndAnalyticsEntitlement     = "read stats and analytics"
 	accessBillingEntitlement             = "access billing"

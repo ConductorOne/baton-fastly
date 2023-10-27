@@ -90,7 +90,7 @@ func (o *serviceBuilder) List(ctx context.Context, _ *v2.ResourceId, pagination 
 		return resources, "", nil, nil
 	}
 
-	nextPage, err := handleNextPage(bag, page+1)
+	nextPage, err := getPageTokenFromPage(bag, page+1)
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -189,7 +189,7 @@ func (o *serviceBuilder) Grants(ctx context.Context, resource *v2.Resource, pagi
 		return nil, "", nil, wrapError(err, "failed to list service authorizations")
 	}
 
-	grants, err := o.grantEngineer(resource, authorizations.Items)
+	grants, err := o.grantEngineer(ctx, resource, authorizations.Items)
 	if err != nil {
 		return nil, "", nil, wrapError(err, "failed to process service authorizations")
 	}
@@ -199,7 +199,7 @@ func (o *serviceBuilder) Grants(ctx context.Context, resource *v2.Resource, pagi
 		return rv, "", nil, nil
 	}
 
-	nextPage, err := handleNextPage(bag, page+1)
+	nextPage, err := getPageTokenFromPage(bag, page+1)
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -283,7 +283,7 @@ func grantBilling(service *v2.Resource, user *v2.Resource) []*v2.Grant {
 	return rv
 }
 
-func (o *serviceBuilder) grantEngineer(service *v2.Resource, authorizations []*fastly.ServiceAuthorization) ([]*v2.Grant, error) {
+func (o *serviceBuilder) grantEngineer(ctx context.Context, service *v2.Resource, authorizations []*fastly.ServiceAuthorization) ([]*v2.Grant, error) {
 	var rv []*v2.Grant
 
 	for _, authorization := range authorizations {
@@ -293,7 +293,7 @@ func (o *serviceBuilder) grantEngineer(service *v2.Resource, authorizations []*f
 				return nil, err
 			}
 
-			userResource, err := newUserResource(context.Background(), user)
+			userResource, err := newUserResource(ctx, user)
 			if err != nil {
 				return nil, err
 			}
