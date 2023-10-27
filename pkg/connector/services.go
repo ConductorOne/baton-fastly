@@ -239,15 +239,12 @@ func (o *serviceBuilder) grantUsers(ctx context.Context, service *v2.Resource) (
 		switch strings.ToLower(user.Role) {
 		case strings.ToLower(superUserRole):
 			rv = append(rv, grantSuperuser(service, userResource)...)
-			break
 		case strings.ToLower(userRole):
 			rv = append(rv, grantUser(service, userResource)...)
-			break
 		case strings.ToLower(billingRole):
 			rv = append(rv, grantBilling(service, userResource)...)
-			break
 		case strings.ToLower(engineerRole):
-			break
+
 		default:
 			return nil, fmt.Errorf("unknown role %s", user.Role)
 		}
