@@ -8,7 +8,7 @@ var (
 	userResourceType = &v2.ResourceType{
 		Id:          "user",
 		DisplayName: "User",
-		Description: "User of Fatly customer.",
+		Description: "A Fastly user",
 		Traits:      []v2.ResourceType_Trait{v2.ResourceType_TRAIT_USER},
 		Annotations: getSkippEntitlementsAndGrantsAnnotations(),
 	}
@@ -16,14 +16,14 @@ var (
 	serviceResourceType = &v2.ResourceType{
 		Id:          "service",
 		DisplayName: "Service",
-		Description: "Service of Fastly customer.",
+		Description: "A Fastly service",
 		Traits:      []v2.ResourceType_Trait{v2.ResourceType_TRAIT_APP},
 	}
 
 	roleResourceType = &v2.ResourceType{
 		Id:          "role",
 		DisplayName: "Role",
-		Description: "Role of Fastly user.",
+		Description: "A Fastly role",
 		Traits:      []v2.ResourceType_Trait{v2.ResourceType_TRAIT_ROLE},
 	}
 )

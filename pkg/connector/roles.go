@@ -33,10 +33,10 @@ type roleBuilder struct {
 	customerId   string
 }
 
-func newRoleBuilder(clinet *fastly.Client, customerId string) *roleBuilder {
+func newRoleBuilder(client *fastly.Client, customerId string) *roleBuilder {
 	return &roleBuilder{
 		resourceType: roleResourceType,
-		client:       clinet,
+		client:       client,
 		customerId:   customerId,
 	}
 }
