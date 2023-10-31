@@ -17,7 +17,7 @@ var (
 		Id:          "service",
 		DisplayName: "Service",
 		Description: "A Fastly service",
-		Traits:      []v2.ResourceType_Trait{v2.ResourceType_TRAIT_APP},
+		Traits:      []v2.ResourceType_Trait{},
 	}
 
 	roleResourceType = &v2.ResourceType{

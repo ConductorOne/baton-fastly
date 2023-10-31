@@ -46,25 +46,6 @@ func (o *serviceBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
 	return serviceResourceType
 }
 
-func newServiceResource(service *fastly.Service) (*v2.Resource, error) {
-	profile := map[string]interface{}{
-		"name":    service.Name,
-		"comment": service.Comment,
-		"type":    service.Type,
-	}
-
-	serviceTraits := []rs.AppTraitOption{
-		rs.WithAppProfile(profile),
-	}
-
-	resource, err := rs.NewAppResource(service.Name, serviceResourceType, service.ID, serviceTraits)
-	if err != nil {
-		return nil, err
-	}
-
-	return resource, nil
-}
-
 func (o *serviceBuilder) List(ctx context.Context, _ *v2.ResourceId, pagination *pagination.Token) ([]*v2.Resource, string, annotations.Annotations, error) {
 	bag, page, err := parsePageToken(pagination.Token, &v2.ResourceId{ResourceType: o.resourceType.Id})
 	if err != nil {
@@ -78,7 +59,7 @@ func (o *serviceBuilder) List(ctx context.Context, _ *v2.ResourceId, pagination 
 
 	var resources []*v2.Resource
 	for _, service := range services {
-		resource, err := newServiceResource(service)
+		resource, err := rs.NewResource(service.Name, serviceResourceType, service.ID)
 		if err != nil {
 			return nil, "", nil, err
 		}
