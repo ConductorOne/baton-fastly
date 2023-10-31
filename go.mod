@@ -3,9 +3,16 @@ module github.com/conductorone/baton-fastly
 go 1.20
 
 require (
-	github.com/conductorone/baton-sdk v0.1.7
+	github.com/conductorone/baton-sdk v0.1.8
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	go.uber.org/zap v1.26.0
+)
+
+require (
+	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/google/jsonapi v1.0.0 // indirect
+	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
+	github.com/peterhellberg/link v1.1.0 // indirect
 )
 
 require (
@@ -32,6 +39,7 @@ require (
 	github.com/doug-martin/goqu/v9 v9.18.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.0.2 // indirect
+	github.com/fastly/go-fastly/v8 v8.6.2
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/glebarez/go-sqlite v1.21.2 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
