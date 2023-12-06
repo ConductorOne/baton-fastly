@@ -12,6 +12,8 @@ import (
 	grant "github.com/conductorone/baton-sdk/pkg/types/grant"
 	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
 	"github.com/fastly/go-fastly/v8/fastly"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
+	"go.uber.org/zap"
 )
 
 const (
@@ -22,9 +24,9 @@ const (
 )
 
 var (
-	roles = []string{superUserRole, userRole, billingRole, engineerRole}
-
+	roles                        = []string{superUserRole, userRole, billingRole, engineerRole}
 	rolesWithAccessToAllServices = []string{superUserRole, userRole, billingRole}
+	revokedRole                  = userRole
 )
 
 type roleBuilder struct {
@@ -110,4 +112,70 @@ func (o *roleBuilder) Grants(ctx context.Context, resource *v2.Resource, _ *pagi
 	}
 
 	return rv, "", nil, nil
+}
+
+func (o *roleBuilder) Grant(ctx context.Context, principal *v2.Resource, entitlement *v2.Entitlement) (annotations.Annotations, error) {
+	l := ctxzap.Extract(ctx)
+
+	if principal.Id.ResourceType != userResourceType.Id {
+		err := fmt.Errorf("baton-fastly: only users can be granted to roles")
+
+		l.Warn(
+			err.Error(),
+			zap.String("principal_id", principal.Id.Resource),
+			zap.String("principal_type", principal.Id.ResourceType),
+		)
+	}
+
+	role := strings.ToLower(entitlement.Resource.Id.Resource)
+
+	_, err := o.client.UpdateUser(&fastly.UpdateUserInput{
+		ID:   principal.Id.Resource,
+		Role: &role,
+	})
+	if err != nil {
+		err = wrapError(err, "failed to grant role to user")
+
+		l.Error(
+			err.Error(),
+			zap.String("role_id", entitlement.Resource.Id.Resource),
+			zap.String("user_id", principal.Id.Resource),
+		)
+	}
+
+	return nil, nil
+}
+
+func (o *roleBuilder) Revoke(ctx context.Context, grant *v2.Grant) (annotations.Annotations, error) {
+	l := ctxzap.Extract(ctx)
+
+	principal := grant.Principal
+
+	if principal.Id.ResourceType != userResourceType.Id {
+		err := fmt.Errorf("baton-fastly: only users can be granted to roles")
+
+		l.Warn(
+			err.Error(),
+			zap.String("principal_id", principal.Id.Resource),
+			zap.String("principal_type", principal.Id.ResourceType),
+		)
+	}
+
+	role := strings.ToLower(revokedRole)
+
+	_, err := o.client.UpdateUser(&fastly.UpdateUserInput{
+		ID:   principal.Id.Resource,
+		Role: &role,
+	})
+	if err != nil {
+		err = wrapError(err, "failed to grant role to user")
+
+		l.Error(
+			err.Error(),
+			zap.String("role_id", revokedRole),
+			zap.String("user_id", principal.Id.Resource),
+		)
+	}
+
+	return nil, nil
 }
