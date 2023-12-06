@@ -125,6 +125,8 @@ func (o *roleBuilder) Grant(ctx context.Context, principal *v2.Resource, entitle
 			zap.String("principal_id", principal.Id.Resource),
 			zap.String("principal_type", principal.Id.ResourceType),
 		)
+
+		return nil, err
 	}
 
 	role := strings.ToLower(entitlement.Resource.Id.Resource)
@@ -159,6 +161,8 @@ func (o *roleBuilder) Revoke(ctx context.Context, grant *v2.Grant) (annotations.
 			zap.String("principal_id", principal.Id.Resource),
 			zap.String("principal_type", principal.Id.ResourceType),
 		)
+
+		return nil, err
 	}
 
 	role := strings.ToLower(revokedRole)
