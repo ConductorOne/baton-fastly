@@ -12,6 +12,8 @@ import (
 	grant "github.com/conductorone/baton-sdk/pkg/types/grant"
 	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
 	"github.com/fastly/go-fastly/v8/fastly"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
+	"go.uber.org/zap"
 )
 
 type serviceBuilder struct {
@@ -20,17 +22,30 @@ type serviceBuilder struct {
 	customerId   string
 }
 
-var (
+const (
 	ReadOnlyPermission    = "read_only"
 	PurgeSelectPermission = "purge_select"
 	PurgeAllPermission    = "purge_all"
 	FullAccessPermission  = "full"
+)
 
+var (
 	permissionEntitlementMap = map[string][]string{
 		ReadOnlyPermission:    {readStatsAndConfigurationEntitlement},
 		PurgeSelectPermission: {readStatsAndConfigurationEntitlement, purgeSelectedContentEntitlement},
 		PurgeAllPermission:    {readStatsAndConfigurationEntitlement, purgeSelectedContentEntitlement, purgeAllEntitlement},
 		FullAccessPermission:  {readStatsAndConfigurationEntitlement, purgeSelectedContentEntitlement, purgeAllEntitlement, fullAccessEntitlement},
+	}
+	entitlementPermissionMap = map[string]string{
+		readStatsAndConfigurationEntitlement: ReadOnlyPermission,
+		purgeSelectedContentEntitlement:      PurgeSelectPermission,
+		purgeAllEntitlement:                  PurgeAllPermission,
+		fullAccessEntitlement:                FullAccessPermission,
+	}
+	revokeEntitlementMap = map[string]string{
+		purgeSelectedContentEntitlement: readStatsAndConfigurationEntitlement,
+		purgeAllEntitlement:             purgeSelectedContentEntitlement,
+		fullAccessEntitlement:           purgeAllEntitlement,
 	}
 )
 
@@ -306,4 +321,195 @@ func (o *serviceBuilder) grantEngineer(ctx context.Context, service *v2.Resource
 	}
 
 	return rv, nil
+}
+
+func (o *serviceBuilder) Grant(ctx context.Context, principal *v2.Resource, entitlement *v2.Entitlement) (annotations.Annotations, error) {
+	l := ctxzap.Extract(ctx)
+
+	permission, exists := entitlementPermissionMap[entitlement.Slug]
+	if !exists {
+		err := fmt.Errorf("baton-fastly: unable to grant %s entitlement", entitlement.Slug)
+
+		l.Warn(
+			err.Error(),
+			zap.String("entitlement_id", entitlement.Slug),
+		)
+
+		return nil, err
+	}
+
+	err := o.validateGrantOperation(principal, entitlement, l)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = o.upsertServiceAuthorizationForUser(entitlement.Resource.Id.Resource, principal.Id.Resource, permission, l)
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
+}
+
+func (o *serviceBuilder) getServiceAuthorizationForUser(serviceId, userId string) (*fastly.ServiceAuthorization, error) {
+	pageNumber := 1
+
+	for {
+		serviceAuthorizations, err := o.client.ListServiceAuthorizations(&fastly.ListServiceAuthorizationsInput{
+			PageNumber: pageNumber,
+			PageSize:   resourcePageSize,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, serviceAuthorization := range serviceAuthorizations.Items {
+			if serviceAuthorization.Service.ID == serviceId && serviceAuthorization.User.ID == userId {
+				return serviceAuthorization, nil
+			}
+		}
+
+		if pageNumber >= serviceAuthorizations.Info.Meta.TotalPages {
+			break
+		}
+	}
+
+	return nil, nil
+}
+
+// Service authorization for user can already exist with different permission.
+// In this case we need to update it.
+func (o *serviceBuilder) upsertServiceAuthorizationForUser(serviceId, userId, permission string, l *zap.Logger) (*fastly.ServiceAuthorization, error) {
+	serviceAuthorization, err := o.getServiceAuthorizationForUser(serviceId, userId)
+	if err != nil {
+		return nil, wrapError(err, "failed to get service authorization")
+	}
+
+	if serviceAuthorization != nil {
+		if serviceAuthorization.Permission == permission {
+			return serviceAuthorization, nil
+		}
+
+		serviceAuthorization, err := o.client.UpdateServiceAuthorization(&fastly.UpdateServiceAuthorizationInput{
+			ID:         serviceAuthorization.ID,
+			Permission: permission,
+		})
+		if err != nil {
+			err = wrapError(err, "failed to update permission to user")
+
+			l.Error(
+				err.Error(),
+				zap.String("permission", permission),
+				zap.String("user_id", userId),
+				zap.String("service_id", serviceId),
+			)
+		}
+
+		return serviceAuthorization, nil
+	} else {
+		serviceAuthorization, err := o.client.CreateServiceAuthorization(&fastly.CreateServiceAuthorizationInput{
+			Service: &fastly.SAService{
+				ID: serviceId,
+			},
+			User: &fastly.SAUser{
+				ID: userId,
+			},
+			Permission: permission,
+		})
+		if err != nil {
+			err = wrapError(err, "failed to grant permission to user")
+
+			l.Error(
+				err.Error(),
+				zap.String("permission", permission),
+				zap.String("user_id", userId),
+				zap.String("service_id", serviceId),
+			)
+		}
+
+		return serviceAuthorization, nil
+	}
+}
+
+func (o *serviceBuilder) validateGrantOperation(principal *v2.Resource, entitlement *v2.Entitlement, l *zap.Logger) error {
+	if principal.Id.ResourceType != userResourceType.Id {
+		err := fmt.Errorf("baton-fastly: only users can be granted to service")
+
+		l.Warn(
+			err.Error(),
+			zap.String("principal_id", principal.Id.Resource),
+			zap.String("principal_type", principal.Id.ResourceType),
+		)
+
+		return err
+	}
+
+	user, err := o.client.GetUser(&fastly.GetUserInput{ID: principal.Id.Resource})
+	if err != nil {
+		err := wrapError(err, "failed to get user")
+
+		l.Error(
+			err.Error(),
+			zap.String("user_id", principal.Id.Resource),
+		)
+
+		return err
+	}
+
+	if user.Role != strings.ToLower(engineerRole) {
+		err := fmt.Errorf("baton-fastly: only users with role %s can be granted to service", engineerRole)
+
+		l.Warn(
+			err.Error(),
+			zap.String("user_id", principal.Id.Resource),
+			zap.String("user_role", user.Role),
+		)
+
+		return err
+	}
+
+	return nil
+}
+
+func (o *serviceBuilder) Revoke(ctx context.Context, grant *v2.Grant) (annotations.Annotations, error) {
+	l := ctxzap.Extract(ctx)
+
+	principal := grant.Principal
+	entitlement := grant.Entitlement
+
+	revokedEntitlement, exists := revokeEntitlementMap[entitlement.Slug]
+	if !exists {
+		err := fmt.Errorf("baton-fastly: unable to revoke %s entitlement", entitlement.Slug)
+
+		l.Warn(
+			err.Error(),
+			zap.String("entitlement_id", entitlement.Slug),
+		)
+
+		return nil, err
+	}
+
+	revokedPermission, exists := entitlementPermissionMap[revokedEntitlement]
+	if !exists {
+		err := fmt.Errorf("baton-fastly: unable to map %s entitlement to permission", revokedEntitlement)
+
+		l.Warn(
+			err.Error(),
+			zap.String("entitlement_id", revokedEntitlement),
+		)
+
+		return nil, err
+	}
+
+	err := o.validateGrantOperation(principal, entitlement, l)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = o.upsertServiceAuthorizationForUser(entitlement.Resource.Id.Resource, principal.Id.Resource, revokedPermission, l)
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
 }
