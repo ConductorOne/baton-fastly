@@ -12,6 +12,10 @@ var (
 		field.WithIsSecret(true),
 		field.WithDisplayName("Access Token"),
 	)
+	BaseURLField = field.StringField(
+		"base-url",
+		field.WithDescription("Override the Fastly API URL (for testing)"),
+	)
 
 	// FieldRelationships defines relationships between the fields listed in
 	// Config that can be automatically validated.
@@ -21,6 +25,7 @@ var (
 //go:generate go run ./gen
 var Config = field.NewConfiguration([]field.SchemaField{
 	AccessToken,
+	BaseURLField,
 })
 
 // ValidateConfig is run after the configuration is loaded, and should return an

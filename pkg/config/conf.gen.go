@@ -5,6 +5,7 @@ import "reflect"
 
 type Fastly struct {
 	AccessToken string `mapstructure:"access-token"`
+	BaseUrl string `mapstructure:"base-url"`
 }
 
 func (c *Fastly) findFieldByTag(tagValue string) (any, bool) {
