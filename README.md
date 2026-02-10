@@ -1,6 +1,6 @@
 [Baton Logo](./docs/images/baton-logo.png)
 
-# `baton-fastly` [![Go Reference](https://pkg.go.dev/badge/github.com/conductorone/baton-fastly.svg)](https://pkg.go.dev/github.com/conductorone/baton-fastly) ![main ci](https://github.com/conductorone/baton-fastly/actions/workflows/main.yaml/badge.svg)
+# `baton-fastly` [![Go Reference](https://pkg.go.dev/badge/github.com/conductorone/baton-fastly.svg)](https://pkg.go.dev/github.com/conductorone/baton-fastly) ![verify](https://github.com/conductorone/baton-fastly/actions/workflows/verify.yaml/badge.svg)
 
 `baton-fastly` is a connector for Baton built using the [Baton SDK](https://github.com/conductorone/baton-sdk). It works with Fastly API.
 
@@ -8,7 +8,7 @@ Check out [Baton](https://github.com/conductorone/baton) to learn more about the
 
 # Prerequisites
 
-Connector requires automation token that is used throughout the communication with API. To obtain this token, you have to create one in Fastly. More in information about how to generate token [here](https://developer.fastly.com/reference/api/auth-tokens/automation)). 
+Connector requires automation token that is used throughout the communication with API. To obtain this token, you have to create one in Fastly. More in information about how to generate token [here](https://developer.fastly.com/reference/api/auth-tokens/automation)).
 
 After you have obtained access token, you can use it with connector. You can do this by setting `BATON_ACCESS_TOKEN` or by passing `--access-token`.
 
