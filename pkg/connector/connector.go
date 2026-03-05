@@ -46,8 +46,15 @@ func (d *Fastly) Validate(ctx context.Context) (annotations.Annotations, error) 
 }
 
 // New returns a new instance of the connector.
-func New(ctx context.Context, accessToken string) (*Fastly, error) {
-	client, err := fastly.NewClient(accessToken)
+func New(ctx context.Context, accessToken, baseURL string) (*Fastly, error) {
+	var client *fastly.Client
+	var err error
+
+	if baseURL != "" {
+		client, err = fastly.NewClientForEndpoint(accessToken, baseURL)
+	} else {
+		client, err = fastly.NewClient(accessToken)
+	}
 	if err != nil {
 		return nil, err
 	}
