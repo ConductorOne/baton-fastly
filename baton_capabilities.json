@@ -1,56 +1,56 @@
 {
-  "@type": "type.googleapis.com/c1.connector.v2.ConnectorCapabilities",
-  "resourceTypeCapabilities": [
+  "@type":  "type.googleapis.com/c1.connector.v2.ConnectorCapabilities",
+  "resourceTypeCapabilities":  [
     {
-      "resourceType": {
-        "id": "role",
-        "displayName": "Role",
-        "traits": [
+      "resourceType":  {
+        "id":  "role",
+        "displayName":  "Role",
+        "traits":  [
           "TRAIT_ROLE"
         ],
-        "description": "A Fastly role"
+        "description":  "A Fastly role"
       },
-      "capabilities": [
+      "capabilities":  [
         "CAPABILITY_SYNC",
         "CAPABILITY_PROVISION"
       ],
-      "permissions": {}
+      "permissions":  {}
     },
     {
-      "resourceType": {
-        "id": "service",
-        "displayName": "Service",
-        "description": "A Fastly service"
+      "resourceType":  {
+        "id":  "service",
+        "displayName":  "Service",
+        "description":  "A Fastly service"
       },
-      "capabilities": [
+      "capabilities":  [
         "CAPABILITY_SYNC",
         "CAPABILITY_PROVISION"
       ],
-      "permissions": {}
+      "permissions":  {}
     },
     {
-      "resourceType": {
-        "id": "user",
-        "displayName": "User",
-        "traits": [
+      "resourceType":  {
+        "id":  "user",
+        "displayName":  "User",
+        "traits":  [
           "TRAIT_USER"
         ],
-        "annotations": [
+        "annotations":  [
           {
-            "@type": "type.googleapis.com/c1.connector.v2.SkipEntitlementsAndGrants"
+            "@type":  "type.googleapis.com/c1.connector.v2.SkipEntitlementsAndGrants"
           }
         ],
-        "description": "A Fastly user"
+        "description":  "A Fastly user"
       },
-      "capabilities": [
+      "capabilities":  [
         "CAPABILITY_SYNC"
       ],
-      "permissions": {}
+      "permissions":  {}
     }
   ],
-  "connectorCapabilities": [
+  "connectorCapabilities":  [
     "CAPABILITY_PROVISION",
     "CAPABILITY_SYNC"
   ],
-  "credentialDetails": {}
+  "credentialDetails":  {}
 }
