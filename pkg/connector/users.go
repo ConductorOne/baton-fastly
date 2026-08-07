@@ -41,12 +41,12 @@ func newUserResource(ctx context.Context, user *fastly.User) (*v2.Resource, erro
 	}
 
 	userTraits := []rs.UserTraitOption{
-		rs.WithUserProfile(profile),
-		rs.WithStatus(userStatus),
 		rs.WithUserLogin(user.Login),
 	}
 
-	resource, err := rs.NewUserResource(user.Name, userResourceType, user.ID, userTraits)
+	resource, err := rs.NewUserResource(user.Name, userResourceType, user.ID, userTraits,
+		rs.WithResourceProfile(profile),
+		rs.WithResourceStatus(v2.Status_ResourceStatus(userStatus), ""))
 	if err != nil {
 		return nil, err
 	}
